@@ -1,0 +1,19 @@
+{
+  "name": "hvab",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/donavynhaley/HVAB.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/donavynhaley/HVAB/issues"
+  },
+  "homepage": "https://github.com/donavynhaley/HVAB#readme"
+}
