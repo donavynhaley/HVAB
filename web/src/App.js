@@ -10,10 +10,9 @@ function App() {
                 <Chessboard
                     position={"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}
                     calcWidth={(screenSize) => {
-                        const spacing = 200
-                        const ratio = (screenSize.screenHeight - spacing) / (screenSize.screenWidth - spacing)
-                        console.log(ratio)
-                        return screenSize.screenWidth * ratio
+                        const spacing = 100
+                        const size = screenSize.screenWidth > screenSize.screenHeight ? screenSize.screenHeight - spacing : screenSize.screenWidth  -spacing
+                        return size
                     }}
                 />
             </div>
