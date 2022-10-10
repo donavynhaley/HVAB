@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import Chessboard from "chessboardjsx";
 import './App.css';
 import {Chess} from "chess.js";
-
+import StockfishIntegration from "./StockfishIntegration";
 function App() {
     const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     const [fen, setFen] = useState(startingFen)
@@ -20,22 +20,22 @@ function App() {
         setFen(game.fen())
     }
 
+
     return (
         <div className="App">
             <div className="chess-container">
                 <h1>Chess App</h1>
-                <Chessboard
-                    position={fen}
-                    calcWidth={({screenWidth, screenHeight}) => {
-                        const spacing = 100
-                        return screenWidth > screenHeight ? screenHeight - spacing : screenWidth - spacing
-                    }}
-                    onDrop={({sourceSquare, targetSquare}) => handleMove({
-                        from: sourceSquare,
-                        to: targetSquare,
-                    })}
-
-                />
+                <StockfishIntegration>
+                    {({ position, onDrop }) => (
+                        <Chessboard
+                            id="stockfish"
+                            position={position}
+                            width={320}
+                            onDrop={onDrop}
+                            orientation="black"
+                        />
+                    )}
+                </StockfishIntegration>
             </div>
         </div>
     );
