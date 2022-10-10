@@ -10,29 +10,37 @@ function App() {
     const [game] = useState(new Chess(startingFen))
     const STOCKFISH = window.STOCKFISH;
 
-    useEffect(()=>{
-       engineGame().prepareMove()
-    },[])
+    useEffect(() => {
+        engineGame().prepareMove()
+    }, [])
 
-    function handleMove({ sourceSquare, targetSquare, piece }) {
-        const playerMove = game.move({
-            from: sourceSquare,
-            to: targetSquare
-        })
-        // const isPawn = piece[1] === 'P' || piece[]
-        // const isPromotionSquare = move.to[1] === '1' || move.to[1] === '8'
-        // if (isPawn && isPromotionSquare) {
-        //     move = {...move, promotion: "q"}
-        // }
-        if (playerMove === null) {
-            return
+    function handleMove({sourceSquare, targetSquare, piece}) {
+        if (sourceSquare === targetSquare) {
+            return;
         }
 
-        flushSync(()=>{
+        let playerMove = {
+            from: sourceSquare,
+            to: targetSquare
+        }
+
+        const isPawn = piece[1] === 'P'
+        const isPromotionSquare = targetSquare[1] === '1' || targetSquare[1] === '8'
+        if (isPawn && isPromotionSquare) {
+            playerMove = {...playerMove, promotion: "q"}
+        }
+        const move = game.move(playerMove)
+        if (move === null) {
+            return
+        }
+        console.log(move)
+
+        flushSync(() => {
             setFen(game.fen())
         })
         engineGame().prepareMove()
     }
+
     const engineGame = options => {
         options = options || {};
 
@@ -46,7 +54,7 @@ function App() {
                 ? STOCKFISH()
                 : new Worker(options.stockfishjs || "stockfish.js");
         let engineStatus = {};
-        let time = { wtime: 3000, btime: 3000, winc: 1500, binc: 1500 };
+        let time = {wtime: 3000, btime: 3000, winc: 1500, binc: 1500};
         let playerColor = "black";
         let clockTimeoutID = null;
         // let isEngineRunning = false;
@@ -54,7 +62,7 @@ function App() {
         // do not pick up pieces if the game is over
         // only pick up pieces for White
 
-        setInterval(function() {
+        setInterval(function () {
             if (announced_game_over) {
                 return;
             }
@@ -69,6 +77,7 @@ function App() {
 
             (which || engine).postMessage(cmd);
         }
+
         uciCmd("uci");
 
         function clockTick() {
@@ -110,7 +119,7 @@ function App() {
 
         function get_moves() {
             let moves = "";
-            let history = game.history({ verbose: true });
+            let history = game.history({verbose: true});
 
             for (let i = 0; i < history.length; ++i) {
                 let move = history[i];
@@ -156,7 +165,7 @@ function App() {
             }
         };
 
-        evaler.onmessage = function(event) {
+        evaler.onmessage = function (event) {
             let line;
 
             if (event && typeof event === "object") {
@@ -195,7 +204,7 @@ function App() {
                 /// Did the AI move?
                 if (match) {
                     // isEngineRunning = false;
-                    game.move({ from: match[1], to: match[2], promotion: match[3] });
+                    game.move({from: match[1], to: match[2], promotion: match[3]});
                     setFen(game.fen())
                     prepareMove();
                     uciCmd("eval", evaler);
@@ -231,7 +240,7 @@ function App() {
         };
 
         return {
-            start: function() {
+            start: function () {
                 uciCmd("ucinewgame");
                 uciCmd("isready");
                 engineStatus.engineReady = false;
@@ -239,30 +248,30 @@ function App() {
                 prepareMove();
                 announced_game_over = false;
             },
-            prepareMove: function() {
+            prepareMove: function () {
                 prepareMove();
             }
         };
     };
 
-        return (
-            <div className="App">
-                <div className="chess-container">
-                    <h1>Chess App</h1>
-                    <Chessboard
-                        id="chessboard"
-                        position={fen}
-                        calcWidth={({screenWidth, screenHeight}) => {
-                            const spacing = 100
-                            return screenWidth > screenHeight ? screenHeight - spacing : screenWidth - spacing
-                        }}
-                        onDrop={handleMove}
-                        orientation="black"
-                    />
-                    )}
-                </div>
+    return (
+        <div className="App">
+            <div className="chess-container">
+                <h1>Chess App</h1>
+                <Chessboard
+                    id="chessboard"
+                    position={fen}
+                    calcWidth={({screenWidth, screenHeight}) => {
+                        const spacing = 100
+                        return screenWidth > screenHeight ? screenHeight - spacing : screenWidth - spacing
+                    }}
+                    onDrop={handleMove}
+                    orientation="black"
+                />
+                )}
             </div>
-        );
-    }
+        </div>
+    );
+}
 
-    export default App;
+export default App;
