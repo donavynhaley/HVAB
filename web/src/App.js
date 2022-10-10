@@ -1,19 +1,40 @@
-import React from "react";
+import React, {useState} from "react";
 import Chessboard from "chessboardjsx";
 import './App.css';
+import {Chess} from "chess.js";
 
 function App() {
+    const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const [fen, setFen] = useState(startingFen)
+    const [game] = useState(new Chess(startingFen))
+
+    function handleMove(move) {
+        const isPawn = game.get(move.from).type === 'p'
+        const isPromotionSquare = move.to[1] === '1' || move.to[1] === '8'
+        if(isPawn && isPromotionSquare){
+            move = {...move, promotion: "q"}
+        }
+        if(!game.move(move)) {
+            return
+        }
+        setFen(game.fen())
+    }
+
     return (
         <div className="App">
             <div className="chess-container">
                 <h1>Chess App</h1>
                 <Chessboard
-                    position={"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}
-                    calcWidth={(screenSize) => {
+                    position={fen}
+                    calcWidth={({screenWidth, screenHeight}) => {
                         const spacing = 100
-                        const size = screenSize.screenWidth > screenSize.screenHeight ? screenSize.screenHeight - spacing : screenSize.screenWidth  -spacing
-                        return size
+                        return screenWidth > screenHeight ? screenHeight - spacing : screenWidth - spacing
                     }}
+                    onDrop={({sourceSquare, targetSquare}) => handleMove({
+                        from: sourceSquare,
+                        to: targetSquare,
+                    })}
+
                 />
             </div>
         </div>
