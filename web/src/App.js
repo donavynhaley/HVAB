@@ -1,44 +1,268 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import Chessboard from "chessboardjsx";
 import './App.css';
 import {Chess} from "chess.js";
-import StockfishIntegration from "./StockfishIntegration";
+import {flushSync} from "react-dom";
+
 function App() {
     const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     const [fen, setFen] = useState(startingFen)
     const [game] = useState(new Chess(startingFen))
+    const STOCKFISH = window.STOCKFISH;
 
-    function handleMove(move) {
-        const isPawn = game.get(move.from).type === 'p'
-        const isPromotionSquare = move.to[1] === '1' || move.to[1] === '8'
-        if(isPawn && isPromotionSquare){
-            move = {...move, promotion: "q"}
-        }
-        if(!game.move(move)) {
+    useEffect(()=>{
+       engineGame().prepareMove()
+    },[])
+
+    function handleMove({ sourceSquare, targetSquare, piece }) {
+        const playerMove = game.move({
+            from: sourceSquare,
+            to: targetSquare
+        })
+        // const isPawn = piece[1] === 'P' || piece[]
+        // const isPromotionSquare = move.to[1] === '1' || move.to[1] === '8'
+        // if (isPawn && isPromotionSquare) {
+        //     move = {...move, promotion: "q"}
+        // }
+        if (playerMove === null) {
             return
         }
-        setFen(game.fen())
+
+        flushSync(()=>{
+            setFen(game.fen())
+        })
+        engineGame().prepareMove()
+    }
+    const engineGame = options => {
+        options = options || {};
+
+        /// We can load Stockfish via Web Workers or via STOCKFISH() if loaded from a <script> tag.
+        let engine =
+            typeof STOCKFISH === "function"
+                ? STOCKFISH()
+                : new Worker(options.stockfishjs || "stockfish.js");
+        let evaler =
+            typeof STOCKFISH === "function"
+                ? STOCKFISH()
+                : new Worker(options.stockfishjs || "stockfish.js");
+        let engineStatus = {};
+        let time = { wtime: 3000, btime: 3000, winc: 1500, binc: 1500 };
+        let playerColor = "black";
+        let clockTimeoutID = null;
+        // let isEngineRunning = false;
+        let announced_game_over;
+        // do not pick up pieces if the game is over
+        // only pick up pieces for White
+
+        setInterval(function() {
+            if (announced_game_over) {
+                return;
+            }
+
+            if (game.isGameOver()) {
+                announced_game_over = true;
+            }
+        }, 500);
+
+        function uciCmd(cmd, which) {
+            // console.log('UCI: ' + cmd);
+
+            (which || engine).postMessage(cmd);
+        }
+        uciCmd("uci");
+
+        function clockTick() {
+            let t =
+                (time.clockColor === "white" ? time.wtime : time.btime) +
+                time.startTime -
+                Date.now();
+            let timeToNextSecond = (t % 1000) + 1;
+            clockTimeoutID = setTimeout(clockTick, timeToNextSecond);
+        }
+
+        function stopClock() {
+            if (clockTimeoutID !== null) {
+                clearTimeout(clockTimeoutID);
+                clockTimeoutID = null;
+            }
+            if (time.startTime > 0) {
+                let elapsed = Date.now() - time.startTime;
+                time.startTime = null;
+                if (time.clockColor === "white") {
+                    time.wtime = Math.max(0, time.wtime - elapsed);
+                } else {
+                    time.btime = Math.max(0, time.btime - elapsed);
+                }
+            }
+        }
+
+        function startClock() {
+            if (game.turn() === "w") {
+                time.wtime += time.winc;
+                time.clockColor = "white";
+            } else {
+                time.btime += time.binc;
+                time.clockColor = "black";
+            }
+            time.startTime = Date.now();
+            clockTick();
+        }
+
+        function get_moves() {
+            let moves = "";
+            let history = game.history({ verbose: true });
+
+            for (let i = 0; i < history.length; ++i) {
+                let move = history[i];
+                moves +=
+                    " " + move.from + move.to + (move.promotion ? move.promotion : "");
+            }
+
+            return moves;
+        }
+
+        const prepareMove = () => {
+            stopClock();
+            let turn = game.turn() === "w" ? "white" : "black";
+            if (!game.isGameOver()) {
+                // if (turn === playerColor) {
+                if (turn !== playerColor) {
+                    // playerColor = playerColor === 'white' ? 'black' : 'white';
+                    uciCmd("position startpos moves" + get_moves());
+                    uciCmd("position startpos moves" + get_moves(), evaler);
+                    uciCmd("eval", evaler);
+
+                    if (time && time.wtime) {
+                        uciCmd(
+                            "go " +
+                            (time.depth ? "depth " + time.depth : "") +
+                            " wtime " +
+                            time.wtime +
+                            " winc " +
+                            time.winc +
+                            " btime " +
+                            time.btime +
+                            " binc " +
+                            time.binc
+                        );
+                    } else {
+                        uciCmd("go " + (time.depth ? "depth " + time.depth : ""));
+                    }
+                    // isEngineRunning = true;
+                }
+                if (game.history().length >= 2 && !time.depth && !time.nodes) {
+                    startClock();
+                }
+            }
+        };
+
+        evaler.onmessage = function(event) {
+            let line;
+
+            if (event && typeof event === "object") {
+                line = event.data;
+            } else {
+                line = event;
+            }
+
+            // console.log('evaler: ' + line);
+
+            /// Ignore some output.
+            if (
+                line === "uciok" ||
+                line === "readyok" ||
+                line.substr(0, 11) === "option name"
+            ) {
+                return;
+            }
+        };
+
+        engine.onmessage = event => {
+            let line;
+
+            if (event && typeof event === "object") {
+                line = event.data;
+            } else {
+                line = event;
+            }
+            // console.log('Reply: ' + line);
+            if (line === "uciok") {
+                engineStatus.engineLoaded = true;
+            } else if (line === "readyok") {
+                engineStatus.engineReady = true;
+            } else {
+                let match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
+                /// Did the AI move?
+                if (match) {
+                    // isEngineRunning = false;
+                    game.move({ from: match[1], to: match[2], promotion: match[3] });
+                    setFen(game.fen())
+                    prepareMove();
+                    uciCmd("eval", evaler);
+                    //uciCmd("eval");
+                    /// Is it sending feedback?
+                } else if (
+                    (match = line.match(/^info .*\bdepth (\d+) .*\bnps (\d+)/))
+                ) {
+                    engineStatus.search = "Depth: " + match[1] + " Nps: " + match[2];
+                }
+
+                /// Is it sending feed back with a score?
+                if ((match = line.match(/^info .*\bscore (\w+) (-?\d+)/))) {
+                    let score = parseInt(match[2], 10) * (game.turn() === "w" ? 1 : -1);
+                    /// Is it measuring in centipawns?
+                    if (match[1] === "cp") {
+                        engineStatus.score = (score / 100.0).toFixed(2);
+                        /// Did it find a mate?
+                    } else if (match[1] === "mate") {
+                        engineStatus.score = "Mate in " + Math.abs(score);
+                    }
+
+                    /// Is the score bounded?
+                    if ((match = line.match(/\b(upper|lower)bound\b/))) {
+                        engineStatus.score =
+                            ((match[1] === "upper") === (game.turn() === "w")
+                                ? "<= "
+                                : ">= ") + engineStatus.score;
+                    }
+                }
+            }
+            // displayStatus();
+        };
+
+        return {
+            start: function() {
+                uciCmd("ucinewgame");
+                uciCmd("isready");
+                engineStatus.engineReady = false;
+                engineStatus.search = null;
+                prepareMove();
+                announced_game_over = false;
+            },
+            prepareMove: function() {
+                prepareMove();
+            }
+        };
+    };
+
+        return (
+            <div className="App">
+                <div className="chess-container">
+                    <h1>Chess App</h1>
+                    <Chessboard
+                        id="chessboard"
+                        position={fen}
+                        calcWidth={({screenWidth, screenHeight}) => {
+                            const spacing = 100
+                            return screenWidth > screenHeight ? screenHeight - spacing : screenWidth - spacing
+                        }}
+                        onDrop={handleMove}
+                        orientation="black"
+                    />
+                    )}
+                </div>
+            </div>
+        );
     }
 
-
-    return (
-        <div className="App">
-            <div className="chess-container">
-                <h1>Chess App</h1>
-                <StockfishIntegration>
-                    {({ position, onDrop }) => (
-                        <Chessboard
-                            id="stockfish"
-                            position={position}
-                            width={320}
-                            onDrop={onDrop}
-                            orientation="black"
-                        />
-                    )}
-                </StockfishIntegration>
-            </div>
-        </div>
-    );
-}
-
-export default App;
+    export default App;
