@@ -4,16 +4,29 @@ import './App.css';
 import {Chess} from "chess.js";
 import {flushSync} from "react-dom";
 import gameEngine from "./Stockfish/gameEngine";
+import {postEngineMove} from "./API/api";
 
 function App() {
     const startingFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     const [fen, setFen] = useState(startingFen)
-    const [score, setScore] = useState(0)
+    const [score, setScore] = useState("0")
     const [game] = useState(new Chess(startingFen))
-    const chess = gameEngine(game, setFen, setScore);
+    const [engineMove, setEngineMove] = useState({fen: startingFen, score: "0", move: ""})
+    const chess = gameEngine(game, setEngineMove);
+
     useEffect(() => {
         chess.prepareMove()
     }, [])
+
+
+    useEffect(() => {
+        setScore(engineMove.score)
+        setFen(engineMove.fen)
+        if(engineMove.move.from && engineMove.move.to){
+            postEngineMove(engineMove.move);
+        }
+        console.log(engineMove.move)
+    }, [engineMove])
 
     function handleMove({sourceSquare, targetSquare, piece}) {
         if (sourceSquare === targetSquare) {

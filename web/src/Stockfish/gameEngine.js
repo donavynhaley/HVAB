@@ -1,4 +1,4 @@
-const gameEngine = (game, setFen, setScore) => {
+const gameEngine = (game, setEngineMove) => {
     const STOCKFISH = window.STOCKFISH;
 
     /// We can load Stockfish via Web Workers or via STOCKFISH() if loaded from a <script> tag.
@@ -155,15 +155,11 @@ const gameEngine = (game, setFen, setScore) => {
             let match = line.match(/^bestmove ([a-h][1-8])([a-h][1-8])([qrbn])?/);
             /// Did the AI move?
             if (match) {
-                // isEngineRunning = false;
-                console.log(match)
-                game.move({from: match[1], to: match[2], promotion: match[3]});
-                setFen(game.fen())
-                setScore(engineStatus.score)
+                const move = {from: match[1], to: match[2], promotion: match[3]};
+                game.move(move);
+                setEngineMove({fen: game.fen(), score: engineStatus.score, move: move})
                 prepareMove();
                 uciCmd("eval", evaler);
-                //uciCmd("eval");
-                /// Is it sending feedback?
             } else if (
                 (match = line.match(/^info .*\bdepth (\d+) .*\bnps (\d+)/))
             ) {
